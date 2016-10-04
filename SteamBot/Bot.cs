@@ -41,6 +41,8 @@ namespace SteamBot
         private List<SteamID> friends;
         private bool disposed = false;
         private string consoleInput;
+        private DateTime lastConfirmationFetchTime = DateTime.Now;
+        private bool isFetchingConfirmations = false;
         #endregion
 
         #region Public readonly variables
@@ -737,7 +739,7 @@ namespace SteamBot
                     {
                         try
                         {
-                            foreach (var confirmation in SteamGuardAccount.FetchConfirmations())
+                            foreach (var confirmation in FetchConfirmations())
                             {
                                 var tradeOfferId = (ulong) SteamGuardAccount.GetConfirmationTradeOfferID(confirmation);
                                 if (tradeOfferId != e.TradeOffer.Id) continue;
@@ -799,6 +801,25 @@ namespace SteamBot
         private void TradeOffers_TradeOfferNoData(object sender, TradeOffers.TradeOfferEventArgs e)
         {
             GetUserHandler(e.TradeOffer.OtherSteamId).OnTradeOfferNoData(e.TradeOffer);
+        }
+
+        private Confirmation[] FetchConfirmations()
+        {
+            while (isFetchingConfirmations)
+            {
+                Thread.Sleep(1);
+            }
+            isFetchingConfirmations = true;
+            var diffInSeconds = (int)Math.Floor((DateTime.Now - lastConfirmationFetchTime).TotalSeconds);
+            var secondsToWait = 10 - diffInSeconds;
+            if (secondsToWait > 0)
+            {
+                Thread.Sleep(secondsToWait * 1000);
+            }
+            var confirmations = SteamGuardAccount.FetchConfirmations();
+            lastConfirmationFetchTime = DateTime.Now;
+            isFetchingConfirmations = false;
+            return confirmations;
         }
 
         /// <summary>
